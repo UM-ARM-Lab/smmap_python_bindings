@@ -125,9 +125,10 @@ include_directories(
 )
 
 # TODO: resolve UCB vs KFMANB vs KFMANDB versions
-pybind11_add_module(smmap_python_bindings src/bindings.cpp)
-add_dependencies(smmap_python_bindings ${catkin_EXPORTED_TARGETS})
-target_link_libraries(smmap_python_bindings PRIVATE ${catkin_LIBRARIES}) # TODO: what does PUBLIC vs PRIVATE actually mean here
+pybind11_add_module(${PROJECT_NAME} src/bindings.cpp)
+add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${catkin_LIBRARIES}) # TODO: what does PUBLIC vs PRIVATE actually mean here
+set_target_properties(${PROJECT_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_PYTHON_DESTINATION})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -174,6 +175,7 @@ target_link_libraries(smmap_python_bindings PRIVATE ${catkin_LIBRARIES}) # TODO:
 # )
 
 ## Mark executables and/or libraries for installation
+#install(TARGETS ${PROJECT_NAME} DESTINATION ${CATKIN_GLOBAL_PYTHON_DESTINATION})
 # install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

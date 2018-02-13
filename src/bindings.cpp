@@ -50,3 +50,7 @@ PYBIND11_MODULE(smmap_python_bindings, m)
         .def(py::init<>())
         .def("execute", &SmmapWrapper::execute);
 }
+
+
+/// Reference:
+// python -c "import sys; print '\n'.join(sys.path); sys.path.append('/home/dmcconac/Dropbox/catkin_ws/devel/lib'); import smmap_python_bindings as smmap; smmap.foo()"
