@@ -115,6 +115,8 @@ catkin_package(
 ## Build ##
 ###########
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -flto -O3 -g -Wall -Wextra -Wpedantic -Wconversion")
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
