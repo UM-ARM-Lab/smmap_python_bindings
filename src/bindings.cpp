@@ -6,45 +6,48 @@
 
 namespace py = pybind11;
 
-void foo()
-{
-    std::cout << "Hello world\n";
-}
-
 class SmmapWrapper
 {
 public:
     SmmapWrapper()
-        : nh_()
-        , ph_("smmap_planner_node")
-        , robot_(nh_)
-        , vis_(nh_, ph_)
-        , task_specification_(smmap::TaskSpecification::MakeTaskSpecification(nh_, ph_))
-        , planner_(robot_, vis_, task_specification_)
     {}
+
+    ~SmmapWrapper()
+    {
+        execute_thread_.join();
+    }
 
     void execute()
     {
-        planner_.execute();
+        execute_thread_ = std::thread(&SmmapWrapper::execute_impl, this);
     }
 
 private:
 
-    ros::NodeHandle nh_;
-    ros::NodeHandle ph_;
+    std::thread execute_thread_;
 
-    smmap::RobotInterface robot_;
-    smmap_utilities::Visualizer vis_;
+    // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
+    void execute_impl() const
+    {
+        ros::NodeHandle nh;
+        ros::NodeHandle ph("smmap_planner_node");
 
-    smmap::TaskSpecification::Ptr task_specification_;
-    smmap::Planner planner_;
+        ROS_INFO("Creating utility objects");
+        smmap::RobotInterface robot(nh);
+        smmap_utilities::Visualizer vis(nh, ph);
+        smmap::TaskSpecification::Ptr task_specification(smmap::TaskSpecification::MakeTaskSpecification(nh, ph, vis));
+
+        ROS_INFO("Creating and executing planner");
+        smmap::Planner planner(nh, ph, robot, vis, task_specification);
+        planner.execute();
+
+        ROS_INFO("Disposing planner...");
+    }
 };
 
 PYBIND11_MODULE(smmap_python_bindings, m)
 {
     m.doc() = "SMMAP Library Plugin";
-
-    m.def("foo", &foo, "Random hello world test.");
 
     py::class_<SmmapWrapper>(m, "SmmapWrapper")
         .def(py::init<>())
