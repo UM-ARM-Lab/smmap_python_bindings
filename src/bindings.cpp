@@ -21,9 +21,17 @@ public:
         execute_thread_.join();
     }
 
-    void execute()
+    void execute(
+            std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
+            std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
+            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn)
     {
-        execute_thread_ = std::thread(&SmmapWrapper::execute_impl, this);
+        execute_thread_ = std::thread(
+                    &SmmapWrapper::execute_impl,
+                    this,
+                    get_grippers_jacobian_fn,
+                    get_collision_points_of_interest_fn,
+                    get_collision_points_of_interest_jacobians_fn);
     }
 
 private:
@@ -31,7 +39,10 @@ private:
     std::thread execute_thread_;
 
     // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
-    void execute_impl() const
+    void execute_impl(
+            std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
+            std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
+            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn) const
     {
         assert(ros::isInitialized());
 
@@ -39,7 +50,11 @@ private:
         ros::NodeHandle ph("smmap_planner_node");
 
         ROS_INFO("Creating utility objects");
-        smmap::RobotInterface robot(nh);
+        smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh);
+        robot->setCallbackFunctions(
+                    get_grippers_jacobian_fn,
+                    get_collision_points_of_interest_fn,
+                    get_collision_points_of_interest_jacobians_fn);
         smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph);
         smmap::TaskSpecification::Ptr task_specification(smmap::TaskSpecification::MakeTaskSpecification(nh, ph, vis));
 
@@ -51,24 +66,6 @@ private:
     }
 };
 
-//using MatrixXdR = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
-//void SetJacobian(const Eigen::Ref<MatrixXdR>& jacobian)
-//void SetJacobian(const Eigen::Ref<Eigen::MatrixXd>& jacobian)
-void SetJacobian(const Eigen::MatrixXd& jacobian)
-{
-//    std::cout << "Ind: " << manipulator_ind << std::endl;
-    std::cout << "Jacobian:\n" << jacobian << std::endl;
-}
-
-//static std::function<Eigen::MatrixXd()> global_callback;
-
-void SetJacobianCallbackFunction(const std::function<Eigen::MatrixXd(int)>& callback)
-{
-    const Eigen::MatrixXd jacobian = callback(1);
-    std::cout << jacobian << std::endl;
-}
-
 PYBIND11_MODULE(smmap_python_bindings, m)
 {
     m.doc() = "SMMAP Library Plugin";
@@ -76,13 +73,6 @@ PYBIND11_MODULE(smmap_python_bindings, m)
     py::class_<SmmapWrapper>(m, "SmmapWrapper")
         .def(py::init<>())
         .def("execute", &SmmapWrapper::execute);
-
-    m.def("SetJacobian", &SetJacobian, "Sets the Jacobian for the indicted manipulator");
-
-    m.def("SetJacobianCallbackFunction", &SetJacobianCallbackFunction, "Function pointer test");
-
-//    m.def("cholesky1", [](Eigen::Ref<MatrixXdR> x) -> Eigen::MatrixXd { return x.llt().matrixL(); });
-//    m.def("cholesky2", [](const Eigen::Ref<const MatrixXdR> &x) -> Eigen::MatrixXd { return x.llt().matrixL(); });
 }
 
 
