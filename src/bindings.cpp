@@ -50,7 +50,7 @@ private:
         ros::NodeHandle ph("smmap_planner_node");
 
         ROS_INFO("Creating utility objects");
-        smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh);
+        smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh, ph);
         robot->setCallbackFunctions(
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
