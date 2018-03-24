@@ -6,7 +6,8 @@
 #include <iostream>
 #include <functional>
 
-#include "smmap/planner.h"
+#include <smmap/planner.h>
+#include <smmap/grippers.hpp>
 
 namespace py = pybind11;
 
@@ -22,16 +23,20 @@ public:
     }
 
     void execute(
+            std::function<smmap::AllGrippersSinglePose(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
             std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
             std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
-            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn)
+            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
+            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn)
     {
         execute_thread_ = std::thread(
                     &SmmapWrapper::execute_impl,
                     this,
+                    get_ee_poses_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
-                    get_collision_points_of_interest_jacobians_fn);
+                    get_collision_points_of_interest_jacobians_fn,
+                    full_robot_collision_check_fn);
     }
 
 private:
@@ -40,9 +45,11 @@ private:
 
     // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
     void execute_impl(
+            std::function<smmap::AllGrippersSinglePose(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
             std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
             std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
-            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn) const
+            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
+            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn) const
     {
         assert(ros::isInitialized());
 
@@ -52,9 +59,11 @@ private:
         ROS_INFO("Creating utility objects");
         smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh, ph);
         robot->setCallbackFunctions(
+                    get_ee_poses_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
-                    get_collision_points_of_interest_jacobians_fn);
+                    get_collision_points_of_interest_jacobians_fn,
+                    full_robot_collision_check_fn);
         smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph);
         smmap::TaskSpecification::Ptr task_specification(smmap::TaskSpecification::MakeTaskSpecification(nh, ph, vis));
 
