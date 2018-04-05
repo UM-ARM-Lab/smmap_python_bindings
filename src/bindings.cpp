@@ -23,7 +23,7 @@ public:
     }
 
     void execute(
-            std::function<smmap::AllGrippersSinglePose(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
+            std::function<EigenHelpers::VectorMatrix4d(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
             std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
             std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
             std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
@@ -45,7 +45,7 @@ private:
 
     // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
     void execute_impl(
-            std::function<smmap::AllGrippersSinglePose(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
+            std::function<EigenHelpers::VectorMatrix4d(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
             std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
             std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
             std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
@@ -56,10 +56,22 @@ private:
         ros::NodeHandle nh;
         ros::NodeHandle ph("smmap_planner_node");
 
+        const auto get_ee_poses_with_conversion_fn = [&get_ee_poses_fn] (const Eigen::VectorXd& configuration)
+        {
+            const auto as_matrix4d = get_ee_poses_fn(configuration);
+            smmap::AllGrippersSinglePose as_isometry(as_matrix4d.size());
+            for (size_t idx = 0; idx < as_matrix4d.size(); ++idx)
+            {
+                as_isometry[idx] = as_matrix4d[idx];
+            }
+            return as_isometry;
+        };
+
+
         ROS_INFO("Creating utility objects");
         smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh, ph);
         robot->setCallbackFunctions(
-                    get_ee_poses_fn,
+                    get_ee_poses_with_conversion_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
                     get_collision_points_of_interest_jacobians_fn,
