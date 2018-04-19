@@ -27,7 +27,8 @@ public:
             std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
             std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
             std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn)
+            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn,
+            std::function<std::vector<Eigen::VectorXd>(const std::string& gripper, const Eigen::MatrixXd& target_pose)> ik_solutions_fn)
     {
         execute_thread_ = std::thread(
                     &SmmapWrapper::execute_impl,
@@ -36,7 +37,8 @@ public:
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
                     get_collision_points_of_interest_jacobians_fn,
-                    full_robot_collision_check_fn);
+                    full_robot_collision_check_fn,
+                    ik_solutions_fn);
     }
 
 private:
@@ -49,7 +51,8 @@ private:
             std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
             std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
             std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn) const
+            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn,
+            std::function<std::vector<Eigen::VectorXd>(const std::string& gripper, const Eigen::MatrixXd& target_pose)> ik_solutions_fn) const
     {
         assert(ros::isInitialized());
 
@@ -67,6 +70,11 @@ private:
             return as_isometry;
         };
 
+        const auto get_ik_solutions_with_conversion_fn = [&ik_solutions_fn] (const std::string& gripper, const Eigen::Isometry3d& target_pose)
+        {
+            return ik_solutions_fn(gripper, target_pose.matrix());
+        };
+
 
         ROS_INFO("Creating utility objects");
         smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh, ph);
@@ -75,7 +83,8 @@ private:
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
                     get_collision_points_of_interest_jacobians_fn,
-                    full_robot_collision_check_fn);
+                    full_robot_collision_check_fn,
+                    get_ik_solutions_with_conversion_fn);
         smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph);
         smmap::TaskSpecification::Ptr task_specification(smmap::TaskSpecification::MakeTaskSpecification(nh, ph, vis));
 
