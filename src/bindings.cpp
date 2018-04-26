@@ -23,12 +23,13 @@ public:
     }
 
     void execute(
-            std::function<EigenHelpers::VectorMatrix4d(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
-            std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
-            std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
-            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn,
-            std::function<std::vector<Eigen::VectorXd>(const std::string& gripper, const Eigen::MatrixXd& target_pose)> ik_solutions_fn)
+            const std::function<EigenHelpers::VectorMatrix4d(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
+            const std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
+            const std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
+            const std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
+            const std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn,
+            const std::function<std::vector<Eigen::VectorXd>(const std::string& gripper, const Eigen::Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::pair<bool, Eigen::VectorXd>(const Eigen::VectorXd& starting_config, const std::vector<std::string>& gripper_names, const EigenHelpers::VectorMatrix4d& target_poses)> general_ik_solution_fn)
     {
         execute_thread_ = std::thread(
                     &SmmapWrapper::execute_impl,
@@ -38,7 +39,8 @@ public:
                     get_collision_points_of_interest_fn,
                     get_collision_points_of_interest_jacobians_fn,
                     full_robot_collision_check_fn,
-                    ik_solutions_fn);
+                    close_ik_solutions_fn,
+                    general_ik_solution_fn);
     }
 
 private:
@@ -47,12 +49,13 @@ private:
 
     // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
     void execute_impl(
-            std::function<EigenHelpers::VectorMatrix4d(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
-            std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
-            std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
-            std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn,
-            std::function<std::vector<Eigen::VectorXd>(const std::string& gripper, const Eigen::MatrixXd& target_pose)> ik_solutions_fn) const
+            const std::function<EigenHelpers::VectorMatrix4d(const Eigen::VectorXd& configuration)> get_ee_poses_fn,
+            const std::function<Eigen::MatrixXd(const Eigen::VectorXd& configuration)> get_grippers_jacobian_fn,
+            const std::function<std::vector<Eigen::Vector3d>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_fn,
+            const std::function<std::vector<Eigen::MatrixXd>(const Eigen::VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
+            const std::function<bool(const Eigen::VectorXd& configuration)> full_robot_collision_check_fn,
+            const std::function<std::vector<Eigen::VectorXd>(const std::string& gripper, const Eigen::Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::pair<bool, Eigen::VectorXd>(const Eigen::VectorXd& starting_config, const std::vector<std::string>& gripper_names, const EigenHelpers::VectorMatrix4d& target_poses)> general_ik_solution_fn) const
     {
         assert(ros::isInitialized());
 
@@ -70,11 +73,24 @@ private:
             return as_isometry;
         };
 
-        const auto get_ik_solutions_with_conversion_fn = [&ik_solutions_fn] (const std::string& gripper, const Eigen::Isometry3d& target_pose)
+        const auto close_ik_solutions_with_conversion_fn = [&close_ik_solutions_fn] (
+                const std::string& gripper, const Eigen::Isometry3d& target_pose)
         {
-            return ik_solutions_fn(gripper, target_pose.matrix());
+            return close_ik_solutions_fn(gripper, target_pose.matrix());
         };
 
+        const auto general_ik_solution_with_conversion_fn = [&general_ik_solution_fn] (
+                const Eigen::VectorXd& starting_config,
+                const std::vector<std::string>& gripper_names,
+                const smmap::AllGrippersSinglePose& target_poses)
+        {
+            EigenHelpers::VectorMatrix4d target_poses_as_matrices(target_poses.size());
+            for (size_t idx = 0; idx < target_poses.size(); ++idx)
+            {
+                target_poses_as_matrices[idx] = target_poses[idx].matrix();
+            }
+            return general_ik_solution_fn(starting_config, gripper_names, target_poses_as_matrices);
+        };
 
         ROS_INFO("Creating utility objects");
         smmap::RobotInterface::Ptr robot = std::make_shared<smmap::RobotInterface>(nh, ph);
@@ -84,7 +100,8 @@ private:
                     get_collision_points_of_interest_fn,
                     get_collision_points_of_interest_jacobians_fn,
                     full_robot_collision_check_fn,
-                    get_ik_solutions_with_conversion_fn);
+                    close_ik_solutions_with_conversion_fn,
+                    general_ik_solution_with_conversion_fn);
         smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph);
         smmap::TaskSpecification::Ptr task_specification(smmap::TaskSpecification::MakeTaskSpecification(nh, ph, vis));
 
