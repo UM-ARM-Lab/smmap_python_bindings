@@ -5,8 +5,10 @@
 
 #include <iostream>
 #include <functional>
+#include <random>
 
-#include <smmap/planner.h>
+#include <arc_utilities/timing.hpp>
+#include <smmap/task_framework.h>
 #include <smmap/grippers.hpp>
 
 namespace py = pybind11;
@@ -26,6 +28,8 @@ public:
     }
 
     void execute(
+            const std::function<void()>& lock_env_fn,
+            const std::function<void()>& unlock_env_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
             const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
@@ -38,6 +42,8 @@ public:
         execute_thread_ = std::thread(
                     &SmmapWrapper::execute_impl,
                     this,
+                    lock_env_fn,
+                    unlock_env_fn,
                     get_ee_poses_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
@@ -48,12 +54,103 @@ public:
                     test_path_for_collision_fn);
     }
 
+    std::vector<double> timingTests(
+            const std::function<void()>& lock_env_fn,
+            const std::function<void()>& unlock_env_fn,
+            const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
+            const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
+            const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
+            const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
+            const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
+            const std::function<std::vector<VectorXd>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
+            const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
+    {
+        py::gil_scoped_release release;
+
+        Eigen::VectorXd lower_limits(14);
+        lower_limits << -169.9, -119.9, -169.9, -119.9, -169.9, -119.9, -174.9,
+                        -169.9, -119.9, -169.9, -119.9, -169.9, -119.9, -174.9;
+        lower_limits *= M_PI / 180.0;
+
+        Eigen::VectorXd upper_limits(14);
+        upper_limits << 169.9, 119.9, 169.9, 119.9, 169.9, 119.9, 174.9,
+                        169.9, 119.9, 169.9, 119.9, 169.9, 119.9, 174.9;
+        upper_limits *= M_PI / 180.0;
+
+        lock_env_fn();
+        arc_utilities::Stopwatch stopwatch;
+        std::mt19937_64 generator;
+        std::uniform_real_distribution<double> uniform_unit_distribution;
+
+        const auto sample = [&] ()
+        {
+            Eigen::VectorXd rand_sample(14);
+            for (ssize_t idx = 0; idx < 14; ++idx)
+            {
+                rand_sample(idx) = EigenHelpers::Interpolate(lower_limits(idx), upper_limits(idx), uniform_unit_distribution(generator));
+            }
+            return rand_sample;
+        };
+
+        std::cout << "Testing ee poses time: " << std::flush;
+        stopwatch(arc_utilities::StopwatchControl::RESET);
+        for (int idx = 0; idx < 100000; ++idx)
+        {
+            get_ee_poses_fn(sample());
+        }
+        const double ee_poses_time = stopwatch(arc_utilities::StopwatchControl::READ);
+        std::cout << ee_poses_time << std::endl;
+
+        std::cout << "Testing ee grippers jacobian time: " << std::flush;
+        stopwatch(arc_utilities::StopwatchControl::RESET);
+        for (int idx = 0; idx < 100000; ++idx)
+        {
+            get_grippers_jacobian_fn(sample());
+        }
+        const double ee_grippers_jacobian_time = stopwatch(arc_utilities::StopwatchControl::READ);
+        std::cout << ee_grippers_jacobian_time << std::endl;
+
+        std::cout << "Testing collision POI time: " << std::flush;
+        stopwatch(arc_utilities::StopwatchControl::RESET);
+        for (int idx = 0; idx < 100000; ++idx)
+        {
+            get_collision_points_of_interest_fn(sample());
+        }
+        const double collision_points_of_interest_time = stopwatch(arc_utilities::StopwatchControl::READ);
+        std::cout << collision_points_of_interest_time << std::endl;
+
+        std::cout << "Testing collision POI jacobian time: " << std::flush;
+        stopwatch(arc_utilities::StopwatchControl::RESET);
+        for (int idx = 0; idx < 100000; ++idx)
+        {
+            get_collision_points_of_interest_jacobians_fn(sample());
+        }
+        const double collision_points_of_interest_jacobians_time = stopwatch(arc_utilities::StopwatchControl::READ);
+        std::cout << collision_points_of_interest_jacobians_time << std::endl;
+
+        std::cout << "Testing collision check time: " << std::flush;
+        stopwatch(arc_utilities::StopwatchControl::RESET);
+        for (int idx = 0; idx < 100000; ++idx)
+        {
+            full_robot_collision_check_fn(sample());
+        }
+        const double collision_check_time = stopwatch(arc_utilities::StopwatchControl::READ);
+        std::cout << collision_check_time << std::endl;
+
+        unlock_env_fn();
+
+        return {ee_poses_time, ee_grippers_jacobian_time, collision_points_of_interest_time, collision_points_of_interest_jacobians_time, collision_check_time};
+    }
+
 private:
 
     std::thread execute_thread_;
 
     // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
     void execute_impl(
+            const std::function<void()>& lock_env_fn,
+            const std::function<void()>& unlock_env_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
             const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
@@ -101,6 +198,8 @@ private:
         ROS_INFO("Creating utility objects");
         RobotInterface::Ptr robot = std::make_shared<RobotInterface>(nh, ph);
         robot->setCallbackFunctions(
+                    lock_env_fn,
+                    unlock_env_fn,
                     get_ee_poses_with_conversion_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
@@ -109,11 +208,11 @@ private:
                     close_ik_solutions_with_conversion_fn,
                     general_ik_solution_with_conversion_fn,
                     test_path_for_collision_fn);
-        smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph);
+        smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph, true);
         TaskSpecification::Ptr task_specification(TaskSpecification::MakeTaskSpecification(nh, ph, vis));
 
         ROS_INFO("Creating and executing planner");
-        Planner planner(nh, ph, robot, vis, task_specification);
+        TaskFramework planner(nh, ph, robot, vis, task_specification);
         planner.execute();
 
         ROS_INFO("Disposing planner...");
@@ -126,7 +225,8 @@ PYBIND11_MODULE(smmap_python_bindings, m)
 
     py::class_<SmmapWrapper>(m, "SmmapWrapper")
         .def(py::init<>())
-        .def("execute", &SmmapWrapper::execute);
+        .def("execute", &SmmapWrapper::execute)
+        .def("timingTests", &SmmapWrapper::timingTests);
 }
 
 
