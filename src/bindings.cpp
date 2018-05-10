@@ -35,7 +35,7 @@ public:
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
             const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
             const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
-            const std::function<std::vector<VectorXd>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::vector<Vector7d>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
     {
@@ -62,10 +62,13 @@ public:
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
             const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
             const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
-            const std::function<std::vector<VectorXd>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::vector<Vector7d>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
     {
+        (void)close_ik_solutions_fn;
+        (void)general_ik_solution_fn;
+        (void)test_path_for_collision_fn;
         py::gil_scoped_release release;
 
         Eigen::VectorXd lower_limits(14);
@@ -156,7 +159,7 @@ private:
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
             const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
             const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
-            const std::function<std::vector<VectorXd>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::vector<Vector7d>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn) const
     {
