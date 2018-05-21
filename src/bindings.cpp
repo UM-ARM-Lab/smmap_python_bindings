@@ -28,6 +28,7 @@ public:
     }
 
     void execute(
+            const std::function<void(const unsigned long, const unsigned long)>& reset_random_seeds_fn,
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
@@ -42,6 +43,7 @@ public:
         execute_thread_ = std::thread(
                     &SmmapWrapper::execute_impl,
                     this,
+                    reset_random_seeds_fn,
                     lock_env_fn,
                     unlock_env_fn,
                     get_ee_poses_fn,
@@ -152,6 +154,7 @@ private:
 
     // These need to be created in a seperate thread to avoid GIL problems, so use "lazy" initialization
     void execute_impl(
+            const std::function<void(const unsigned long, const unsigned long)>& reset_random_seeds_fn,
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
@@ -201,6 +204,7 @@ private:
         ROS_INFO("Creating utility objects");
         RobotInterface::Ptr robot = std::make_shared<RobotInterface>(nh, ph);
         robot->setCallbackFunctions(
+                    reset_random_seeds_fn,
                     lock_env_fn,
                     unlock_env_fn,
                     get_ee_poses_with_conversion_fn,
