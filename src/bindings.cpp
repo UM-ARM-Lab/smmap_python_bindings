@@ -31,12 +31,13 @@ public:
             const std::function<void(const unsigned long, const unsigned long)>& reset_random_seeds_fn,
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
+            const std::function<std::vector<VectorXd>()>& get_robot_joint_info_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
             const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
             const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
             const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
-            const std::function<std::vector<Vector7d>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::vector<VectorXd> (const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses, const double max_gripper_distance)>& close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
     {
@@ -46,6 +47,7 @@ public:
                     reset_random_seeds_fn,
                     lock_env_fn,
                     unlock_env_fn,
+                    get_robot_joint_info_fn,
                     get_ee_poses_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
@@ -59,26 +61,28 @@ public:
     std::vector<double> timingTests(
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
+            const std::function<std::vector<VectorXd>()>& get_robot_joint_info_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
             const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
             const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
             const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
-            const std::function<std::vector<Vector7d>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::vector<VectorXd> (const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses, const double max_gripper_distance)>& close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
     {
         (void)close_ik_solutions_fn;
         (void)general_ik_solution_fn;
         (void)test_path_for_collision_fn;
+        (void)get_robot_joint_info_fn;
         py::gil_scoped_release release;
 
-        Eigen::VectorXd lower_limits(14);
+        VectorXd lower_limits(14);
         lower_limits << -169.9, -119.9, -169.9, -119.9, -169.9, -119.9, -174.9,
                         -169.9, -119.9, -169.9, -119.9, -169.9, -119.9, -174.9;
         lower_limits *= M_PI / 180.0;
 
-        Eigen::VectorXd upper_limits(14);
+        VectorXd upper_limits(14);
         upper_limits << 169.9, 119.9, 169.9, 119.9, 169.9, 119.9, 174.9,
                         169.9, 119.9, 169.9, 119.9, 169.9, 119.9, 174.9;
         upper_limits *= M_PI / 180.0;
@@ -90,10 +94,10 @@ public:
 
         const auto sample = [&] ()
         {
-            Eigen::VectorXd rand_sample(14);
+            VectorXd rand_sample(14);
             for (ssize_t idx = 0; idx < 14; ++idx)
             {
-                rand_sample(idx) = EigenHelpers::Interpolate(lower_limits(idx), upper_limits(idx), uniform_unit_distribution(generator));
+                rand_sample(idx) = Interpolate(lower_limits(idx), upper_limits(idx), uniform_unit_distribution(generator));
             }
             return rand_sample;
         };
@@ -157,12 +161,13 @@ private:
             const std::function<void(const unsigned long, const unsigned long)>& reset_random_seeds_fn,
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
+            const std::function<std::vector<VectorXd>()>& get_robot_joint_info_fn,
             const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
             const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
             const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
             const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
             const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
-            const std::function<std::vector<Vector7d>(const std::string& gripper, const Matrix4d& target_pose)> close_ik_solutions_fn,
+            const std::function<std::vector<VectorXd> (const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses, const double max_gripper_distance)>& close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn) const
     {
@@ -183,9 +188,14 @@ private:
         };
 
         const auto close_ik_solutions_with_conversion_fn = [&close_ik_solutions_fn] (
-                const std::string& gripper, const Isometry3d& target_pose)
+                const std::vector<std::string>& gripper_names, const VectorIsometry3d& target_poses, const double max_gripper_distance)
         {
-            return close_ik_solutions_fn(gripper, target_pose.matrix());
+            VectorMatrix4d target_poses_as_matrices(target_poses.size());
+            for (size_t idx = 0; idx < target_poses.size(); ++idx)
+            {
+                target_poses_as_matrices[idx] = target_poses[idx].matrix();
+            }
+            return close_ik_solutions_fn(gripper_names, target_poses_as_matrices, max_gripper_distance);
         };
 
         const auto general_ik_solution_with_conversion_fn = [&general_ik_solution_fn] (
@@ -207,6 +217,7 @@ private:
                     reset_random_seeds_fn,
                     lock_env_fn,
                     unlock_env_fn,
+                    get_robot_joint_info_fn,
                     get_ee_poses_with_conversion_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
