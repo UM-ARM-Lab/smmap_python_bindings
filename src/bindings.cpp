@@ -32,11 +32,12 @@ public:
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
             const std::function<std::vector<VectorXd>()>& get_robot_joint_info_fn,
-            const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
-            const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
-            const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
-            const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
+            const std::function<void(const VectorXd& configuration)> set_active_dof_values_fn,
+            const std::function<VectorMatrix4d()> get_ee_poses_fn,
+            const std::function<MatrixXd()> get_grippers_jacobian_fn,
+            const std::function<std::vector<Vector3d>()> get_collision_points_of_interest_fn,
+            const std::function<std::vector<MatrixXd>()> get_collision_points_of_interest_jacobians_fn,
+            const std::function<bool()> full_robot_collision_check_fn,
             const std::function<std::vector<VectorXd> (const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses, const double max_gripper_distance)>& close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
@@ -48,6 +49,7 @@ public:
                     lock_env_fn,
                     unlock_env_fn,
                     get_robot_joint_info_fn,
+                    set_active_dof_values_fn,
                     get_ee_poses_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
@@ -62,11 +64,12 @@ public:
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
             const std::function<std::vector<VectorXd>()>& get_robot_joint_info_fn,
-            const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
-            const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
-            const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
-            const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
+            const std::function<void(const VectorXd& configuration)> set_active_dof_values_fn,
+            const std::function<VectorMatrix4d()> get_ee_poses_fn,
+            const std::function<MatrixXd()> get_grippers_jacobian_fn,
+            const std::function<std::vector<Vector3d>()> get_collision_points_of_interest_fn,
+            const std::function<std::vector<MatrixXd>()> get_collision_points_of_interest_jacobians_fn,
+            const std::function<bool()> full_robot_collision_check_fn,
             const std::function<std::vector<VectorXd> (const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses, const double max_gripper_distance)>& close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn)
@@ -106,7 +109,8 @@ public:
         stopwatch(arc_utilities::StopwatchControl::RESET);
         for (int idx = 0; idx < 100000; ++idx)
         {
-            get_ee_poses_fn(sample());
+            set_active_dof_values_fn(sample());
+            get_ee_poses_fn();
         }
         const double ee_poses_time = stopwatch(arc_utilities::StopwatchControl::READ);
         std::cout << ee_poses_time << std::endl;
@@ -115,7 +119,8 @@ public:
         stopwatch(arc_utilities::StopwatchControl::RESET);
         for (int idx = 0; idx < 100000; ++idx)
         {
-            get_grippers_jacobian_fn(sample());
+            set_active_dof_values_fn(sample());
+            get_grippers_jacobian_fn();
         }
         const double ee_grippers_jacobian_time = stopwatch(arc_utilities::StopwatchControl::READ);
         std::cout << ee_grippers_jacobian_time << std::endl;
@@ -124,7 +129,8 @@ public:
         stopwatch(arc_utilities::StopwatchControl::RESET);
         for (int idx = 0; idx < 100000; ++idx)
         {
-            get_collision_points_of_interest_fn(sample());
+            set_active_dof_values_fn(sample());
+            get_collision_points_of_interest_fn();
         }
         const double collision_points_of_interest_time = stopwatch(arc_utilities::StopwatchControl::READ);
         std::cout << collision_points_of_interest_time << std::endl;
@@ -133,7 +139,8 @@ public:
         stopwatch(arc_utilities::StopwatchControl::RESET);
         for (int idx = 0; idx < 100000; ++idx)
         {
-            get_collision_points_of_interest_jacobians_fn(sample());
+            set_active_dof_values_fn(sample());
+            get_collision_points_of_interest_jacobians_fn();
         }
         const double collision_points_of_interest_jacobians_time = stopwatch(arc_utilities::StopwatchControl::READ);
         std::cout << collision_points_of_interest_jacobians_time << std::endl;
@@ -142,7 +149,8 @@ public:
         stopwatch(arc_utilities::StopwatchControl::RESET);
         for (int idx = 0; idx < 100000; ++idx)
         {
-            full_robot_collision_check_fn(sample());
+            set_active_dof_values_fn(sample());
+            full_robot_collision_check_fn();
         }
         const double collision_check_time = stopwatch(arc_utilities::StopwatchControl::READ);
         std::cout << collision_check_time << std::endl;
@@ -162,11 +170,12 @@ private:
             const std::function<void()>& lock_env_fn,
             const std::function<void()>& unlock_env_fn,
             const std::function<std::vector<VectorXd>()>& get_robot_joint_info_fn,
-            const std::function<VectorMatrix4d(const VectorXd& configuration)> get_ee_poses_fn,
-            const std::function<MatrixXd(const VectorXd& configuration)> get_grippers_jacobian_fn,
-            const std::function<std::vector<Vector3d>(const VectorXd& configuration)> get_collision_points_of_interest_fn,
-            const std::function<std::vector<MatrixXd>(const VectorXd& configuration)> get_collision_points_of_interest_jacobians_fn,
-            const std::function<bool(const VectorXd& configuration)> full_robot_collision_check_fn,
+            const std::function<void(const VectorXd& configuration)> set_active_dof_values_fn,
+            const std::function<VectorMatrix4d()> get_ee_poses_fn,
+            const std::function<MatrixXd()> get_grippers_jacobian_fn,
+            const std::function<std::vector<Vector3d>()> get_collision_points_of_interest_fn,
+            const std::function<std::vector<MatrixXd>()> get_collision_points_of_interest_jacobians_fn,
+            const std::function<bool()> full_robot_collision_check_fn,
             const std::function<std::vector<VectorXd> (const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses, const double max_gripper_distance)>& close_ik_solutions_fn,
             const std::function<std::pair<bool, VectorXd>(const VectorXd& starting_config, const std::vector<std::string>& gripper_names, const VectorMatrix4d& target_poses)> general_ik_solution_fn,
             const std::function<bool(const std::vector<VectorXd>& path)> test_path_for_collision_fn) const
@@ -176,9 +185,9 @@ private:
         ros::NodeHandle nh;
         ros::NodeHandle ph("smmap_planner_node");
 
-        const auto get_ee_poses_with_conversion_fn = [&get_ee_poses_fn] (const VectorXd& configuration)
+        const auto get_ee_poses_with_conversion_fn = [&get_ee_poses_fn] ()
         {
-            const auto as_matrix4d = get_ee_poses_fn(configuration);
+            const auto as_matrix4d = get_ee_poses_fn();
             AllGrippersSinglePose as_isometry(as_matrix4d.size());
             for (size_t idx = 0; idx < as_matrix4d.size(); ++idx)
             {
@@ -218,6 +227,7 @@ private:
                     lock_env_fn,
                     unlock_env_fn,
                     get_robot_joint_info_fn,
+                    set_active_dof_values_fn,
                     get_ee_poses_with_conversion_fn,
                     get_grippers_jacobian_fn,
                     get_collision_points_of_interest_fn,
