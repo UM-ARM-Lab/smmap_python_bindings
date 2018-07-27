@@ -240,8 +240,8 @@ private:
         TaskSpecification::Ptr task_specification(TaskSpecification::MakeTaskSpecification(nh, ph, vis));
 
         ROS_INFO("Creating and executing planner");
-        TaskFramework planner(nh, ph, robot, vis, task_specification);
-        planner.execute();
+        TaskFramework framework(nh, ph, robot, vis, task_specification);
+        framework.execute();
 
         ROS_INFO("Disposing planner...");
     }
