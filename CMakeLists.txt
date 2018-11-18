@@ -115,7 +115,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -flto -O2 -g -Wall -Wextra -Wpedantic -Wconversion -DUCB_BANDIT")# -DKFMANDB_BANDIT")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -flto -O2 -g -Wall -Wextra -Wpedantic -Wconversion")
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -126,7 +126,6 @@ include_directories(
   ${pybind11_INCLUDE_DIRS}
 )
 
-# TODO: resolve UCB vs KFMANB vs KFMANDB versions
 pybind11_add_module(${PROJECT_NAME} src/bindings.cpp)
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${catkin_LIBRARIES}) # TODO: what does PUBLIC vs PRIVATE actually mean here
