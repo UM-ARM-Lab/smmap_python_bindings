@@ -182,8 +182,8 @@ private:
     {
         assert(ros::isInitialized());
 
-        ros::NodeHandle nh;
-        ros::NodeHandle ph("smmap_planner_node");
+        auto nh = std::make_shared<ros::NodeHandle>();
+        auto ph = std::make_shared<ros::NodeHandle>("smmap_planner_node");
 
         const auto get_ee_poses_with_conversion_fn = [&get_ee_poses_fn] ()
         {
@@ -221,7 +221,7 @@ private:
         };
 
         ROS_INFO("Creating utility objects");
-        RobotInterface::Ptr robot = std::make_shared<RobotInterface>(nh, ph);
+        auto robot = std::make_shared<RobotInterface>(nh, ph);
         robot->setCallbackFunctions(
                     reset_random_seeds_fn,
                     lock_env_fn,
@@ -236,8 +236,8 @@ private:
                     close_ik_solutions_with_conversion_fn,
                     general_ik_solution_with_conversion_fn,
                     test_path_for_collision_fn);
-        smmap_utilities::Visualizer::Ptr vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph, true);
-        TaskSpecification::Ptr task_specification(TaskSpecification::MakeTaskSpecification(nh, ph, vis));
+        auto vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph, true);
+        auto task_specification = TaskSpecification::MakeTaskSpecification(nh, ph, vis);
 
         ROS_INFO("Creating and executing planner");
         TaskFramework framework(nh, ph, robot, vis, task_specification);
