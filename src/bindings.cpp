@@ -8,13 +8,14 @@
 #include <random>
 
 #include <arc_utilities/timing.hpp>
+#include <smmap_utilities/grippers.h>
 #include <smmap/task_framework.h>
-#include <smmap/grippers.hpp>
 
 namespace py = pybind11;
 using namespace Eigen;
 using namespace EigenHelpers;
 using namespace smmap;
+using namespace smmap_utilities;
 
 class SmmapWrapper
 {
