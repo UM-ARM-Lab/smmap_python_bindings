@@ -8,6 +8,7 @@
 #include <random>
 
 #include <arc_utilities/timing.hpp>
+#include <arc_utilities/math_helpers.hpp>
 #include <smmap_utilities/grippers.h>
 #include <smmap/task_framework.h>
 
@@ -15,7 +16,6 @@ namespace py = pybind11;
 using namespace Eigen;
 using namespace EigenHelpers;
 using namespace smmap;
-using namespace smmap_utilities;
 
 class SmmapWrapper
 {
@@ -237,7 +237,7 @@ private:
                     close_ik_solutions_with_conversion_fn,
                     general_ik_solution_with_conversion_fn,
                     test_path_for_collision_fn);
-        auto vis = std::make_shared<smmap_utilities::Visualizer>(nh, ph, true);
+        auto vis = std::make_shared<Visualizer>(nh, ph, true);
         auto task_specification = TaskSpecification::MakeTaskSpecification(nh, ph, vis);
 
         ROS_INFO("Creating and executing planner");
